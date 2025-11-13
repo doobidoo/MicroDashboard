@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
+#include <ESP8266WebServer.h>
 #include <time.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -41,6 +42,7 @@ const int VIEW_CHANGE_INTERVAL_MS = 5000;
 
 // --- GLOBAL VARIABLES ---
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+ESP8266WebServer server(80);
 enum View { CLOCK_VIEW, DATE_VIEW, WEATHER_VIEW, QUOTE_VIEW, SUN_TIMES_VIEW, MOON_VIEW, FORECAST_VIEW, SYSTEM_INFO_VIEW };
 View currentView = CLOCK_VIEW;
 const int TOTAL_SLIDESHOW_VIEWS = 8;
@@ -134,6 +136,12 @@ void saveConfigCallback();
 void loadConfig();
 void saveConfig();
 void updateWeatherUrl();
+void setupWebServer();
+void handleRoot();
+void handleAPI();
+void handleSettings();
+void handleSettingsSave();
+String getWebInterface();
 
 // --- SETUP ---
 void setup() {
@@ -220,6 +228,8 @@ void setup() {
 
   fetchWeatherData();
 
+  setupWebServer();
+
   currentView = CLOCK_VIEW;
   drawView(currentView);
   lastViewChangeTime = millis();
@@ -227,6 +237,8 @@ void setup() {
 
 // --- MAIN LOOP ---
 void loop() {
+  server.handleClient();
+
   if (millis() - lastViewChangeTime > viewDuration) {
     View nextView = static_cast<View>((currentView + 1) % TOTAL_SLIDESHOW_VIEWS);
     currentView = nextView;
@@ -1050,4 +1062,463 @@ void saveConfig() {
   serializeJson(json, configFile);
   configFile.close();
   Serial.println("Config saved");
+}
+
+// --- WEB SERVER ---
+void setupWebServer() {
+  server.on("/", handleRoot);
+  server.on("/api", handleAPI);
+  server.on("/settings", handleSettings);
+  server.on("/settings/save", HTTP_POST, handleSettingsSave);
+
+  server.begin();
+  Serial.println("Web server started");
+  Serial.print("Access dashboard at: http://");
+  Serial.println(WiFi.localIP());
+}
+
+void handleAPI() {
+  DynamicJsonDocument doc(2048);
+
+  // System info
+  doc["uptime"] = getUptime();
+  doc["freeHeap"] = ESP.getFreeHeap();
+  doc["rssi"] = WiFi.RSSI();
+  doc["ip"] = WiFi.localIP().toString();
+  doc["ssid"] = WiFi.SSID();
+
+  // Time
+  struct tm timeinfo;
+  if (getLocalTime(&timeinfo)) {
+    doc["time"] = getFormattedTimeHHMM();
+    doc["date"] = getFormattedDate();
+    doc["day"] = getDayOfWeek();
+  }
+
+  // Weather
+  doc["temperature"] = weatherTemp;
+  doc["weatherCode"] = weatherCode;
+  doc["weatherDesc"] = getWeatherDescription(weatherCode);
+  doc["tempUnit"] = String(tempUnit);
+
+  // Sun & Moon
+  doc["sunrise"] = sunriseTime;
+  doc["sunset"] = sunsetTime;
+  doc["dayLength"] = calculateDayLength();
+  doc["moonPhase"] = getMoonPhaseName(calculateMoonPhase());
+  doc["moonIllumination"] = (int)(moonIllumination * 100);
+
+  // Forecast
+  JsonArray forecast = doc.createNestedArray("forecast");
+  for (int i = 0; i < 3; i++) {
+    JsonObject day = forecast.createNestedObject();
+    day["date"] = forecastDays[i];
+    day["maxTemp"] = forecastMaxTemps[i];
+    day["minTemp"] = forecastMinTemps[i];
+    day["code"] = forecastCodes[i];
+    day["desc"] = getWeatherDescription(forecastCodes[i]);
+  }
+
+  // Config
+  doc["location"] = String(displayName);
+  doc["viewDuration"] = viewDuration / 1000;
+
+  String response;
+  serializeJson(doc, response);
+  server.send(200, "application/json", response);
+}
+
+void handleRoot() {
+  server.send(200, "text/html", getWebInterface());
+}
+
+void handleSettings() {
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'>";
+  html += "<title>Settings - MicroDashboard</title>";
+  html += "<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;padding:20px}.container{max-width:600px;margin:0 auto;background:white;border-radius:20px;padding:30px;box-shadow:0 20px 60px rgba(0,0,0,0.3)}h1{color:#333;margin-bottom:30px;font-size:2em}form{display:flex;flex-direction:column;gap:20px}.form-group{display:flex;flex-direction:column;gap:8px}label{color:#555;font-weight:600;font-size:0.9em}input,select{padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:1em;transition:border-color 0.3s}input:focus,select:focus{outline:none;border-color:#667eea}button{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white;padding:15px;border:none;border-radius:8px;font-size:1.1em;font-weight:600;cursor:pointer;transition:transform 0.2s}button:hover{transform:translateY(-2px)}button:active{transform:translateY(0)}.back-link{display:inline-block;margin-top:20px;color:#667eea;text-decoration:none;font-weight:600}}</style></head><body>";
+  html += "<div class='container'><h1>⚙️ Settings</h1>";
+  html += "<form method='POST' action='/settings/save'>";
+  html += "<div class='form-group'><label>City/Location:</label><input type='text' name='city' value='" + String(cityName) + "' required></div>";
+  html += "<div class='form-group'><label>Display Name:</label><input type='text' name='displayName' value='" + String(displayName) + "'></div>";
+  html += "<div class='form-group'><label>Temperature Unit:</label><select name='tempUnit'>";
+  html += "<option value='C'" + String(tempUnit[0] == 'C' ? " selected" : "") + ">Celsius</option>";
+  html += "<option value='F'" + String(tempUnit[0] == 'F' ? " selected" : "") + ">Fahrenheit</option>";
+  html += "<option value='B'" + String(tempUnit[0] == 'B' ? " selected" : "") + ">Both</option>";
+  html += "</select></div>";
+  html += "<div class='form-group'><label>View Duration (seconds):</label><input type='number' name='duration' value='" + String(viewDuration / 1000) + "' min='1' max='60'></div>";
+  html += "<button type='submit'>💾 Save Settings</button>";
+  html += "</form><a href='/' class='back-link'>← Back to Dashboard</a></div></body></html>";
+  server.send(200, "text/html", html);
+}
+
+void handleSettingsSave() {
+  if (server.hasArg("city")) {
+    strcpy(cityName, server.arg("city").c_str());
+  }
+  if (server.hasArg("displayName")) {
+    strcpy(displayName, server.arg("displayName").c_str());
+  }
+  if (server.hasArg("tempUnit")) {
+    strcpy(tempUnit, server.arg("tempUnit").c_str());
+  }
+  if (server.hasArg("duration")) {
+    viewDuration = server.arg("duration").toInt() * 1000;
+  }
+
+  saveConfig();
+  fetchGeocodingData(String(cityName));
+  updateWeatherUrl();
+  fetchWeatherData();
+
+  String html = "<!DOCTYPE html><html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width,initial-scale=1'><meta http-equiv='refresh' content='2;url=/'>";
+  html += "<style>*{margin:0;padding:0}body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:white}.message{text-align:center;font-size:1.5em}}</style></head>";
+  html += "<body><div class='message'>✅ Settings saved!<br><small>Redirecting...</small></div></body></html>";
+  server.send(200, "text/html", html);
+}
+
+String getWebInterface() {
+  return R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MicroDashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.3);
+        }
+
+        .card h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            color: #667eea;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .weather-main {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 20px 0;
+        }
+
+        .temp-display {
+            font-size: 4em;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .weather-icon {
+            font-size: 5em;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: #333;
+            font-weight: 600;
+        }
+
+        .forecast-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+
+        .forecast-date {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .forecast-temp {
+            color: #666;
+        }
+
+        .settings-btn {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 15px 30px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+
+        .settings-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 30px;
+            opacity: 0.8;
+        }
+
+        .loading {
+            text-align: center;
+            color: white;
+            font-size: 1.5em;
+            padding: 50px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .temp-display {
+                font-size: 3em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🌈 MicroDashboard</h1>
+            <p id="location">Loading...</p>
+        </div>
+
+        <div id="content" class="loading">Loading dashboard...</div>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/settings" class="settings-btn">⚙️ Settings</a>
+        </div>
+
+        <div class="footer">
+            <p>ESP8266 Weather Station • Updates every 10 seconds</p>
+        </div>
+    </div>
+
+    <script>
+        function getWeatherEmoji(code) {
+            if (code === 0 || code === 1) return '☀️';
+            if (code === 2 || code === 3) return '☁️';
+            if (code === 45 || code === 48) return '🌫️';
+            if (code >= 51 && code <= 67) return '🌧️';
+            if (code >= 71 && code <= 86) return '❄️';
+            if (code >= 95) return '⛈️';
+            return '🌤️';
+        }
+
+        function getMoonEmoji(phase) {
+            if (phase.includes('New')) return '🌑';
+            if (phase.includes('Waxing Crescent')) return '🌒';
+            if (phase.includes('First Quarter')) return '🌓';
+            if (phase.includes('Waxing Gibbous')) return '🌔';
+            if (phase.includes('Full')) return '🌕';
+            if (phase.includes('Waning Gibbous')) return '🌖';
+            if (phase.includes('Last Quarter')) return '🌗';
+            if (phase.includes('Waning Crescent')) return '🌘';
+            return '🌙';
+        }
+
+        function updateDashboard() {
+            fetch('/api')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('location').textContent = data.location;
+
+                    const weatherIcon = getWeatherEmoji(data.weatherCode);
+                    const moonIcon = getMoonEmoji(data.moonPhase);
+
+                    let html = '<div class="grid">';
+
+                    // Clock
+                    html += `
+                        <div class="card">
+                            <h2>🕐 Current Time</h2>
+                            <div style="text-align: center; margin: 20px 0;">
+                                <div style="font-size: 3.5em; font-weight: 700; color: #667eea;">${data.time}</div>
+                                <div style="font-size: 1.5em; color: #666; margin-top: 10px;">${data.day}</div>
+                                <div style="font-size: 1.2em; color: #999;">${data.date}</div>
+                            </div>
+                        </div>
+                    `;
+
+                    // Weather
+                    html += `
+                        <div class="card">
+                            <h2>🌤️ Current Weather</h2>
+                            <div class="weather-main">
+                                <div class="temp-display">${Math.round(data.temperature)}°${data.tempUnit}</div>
+                                <div class="weather-icon">${weatherIcon}</div>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Conditions</span>
+                                <span class="info-value">${data.weatherDesc}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    // Forecast
+                    html += `
+                        <div class="card">
+                            <h2>📅 3-Day Forecast</h2>
+                            ${data.forecast.map(day => {
+                                const date = day.date.substring(5);
+                                const icon = getWeatherEmoji(day.code);
+                                return `
+                                    <div class="forecast-item">
+                                        <span class="forecast-date">${date} ${icon}</span>
+                                        <span class="forecast-temp">${Math.round(day.maxTemp)}° / ${Math.round(day.minTemp)}°</span>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    `;
+
+                    // Sun Times
+                    html += `
+                        <div class="card">
+                            <h2>☀️ Sun Times</h2>
+                            <div class="info-row">
+                                <span class="info-label">Sunrise</span>
+                                <span class="info-value">${data.sunrise}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Sunset</span>
+                                <span class="info-value">${data.sunset}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Day Length</span>
+                                <span class="info-value">${data.dayLength}</span>
+                            </div>
+                        </div>
+                    `;
+
+                    // Moon Phase
+                    html += `
+                        <div class="card">
+                            <h2>🌙 Moon Phase</h2>
+                            <div style="text-align: center; margin: 20px 0;">
+                                <div style="font-size: 5em;">${moonIcon}</div>
+                                <div style="font-size: 1.5em; font-weight: 600; margin-top: 10px;">${data.moonPhase}</div>
+                                <div style="font-size: 1.2em; color: #666; margin-top: 5px;">${data.moonIllumination}% Illuminated</div>
+                            </div>
+                        </div>
+                    `;
+
+                    // System Info
+                    html += `
+                        <div class="card">
+                            <h2>💻 System Info</h2>
+                            <div class="info-row">
+                                <span class="info-label">WiFi</span>
+                                <span class="info-value">${data.ssid} (${data.rssi} dBm)</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">IP Address</span>
+                                <span class="info-value">${data.ip}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Uptime</span>
+                                <span class="info-value">${data.uptime}</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Free Memory</span>
+                                <span class="info-value">${Math.round(data.freeHeap / 1024)} KB</span>
+                            </div>
+                        </div>
+                    `;
+
+                    html += '</div>';
+                    document.getElementById('content').innerHTML = html;
+                })
+                .catch(error => {
+                    document.getElementById('content').innerHTML = '<div class="loading">⚠️ Error loading data</div>';
+                    console.error('Error:', error);
+                });
+        }
+
+        // Initial load
+        updateDashboard();
+
+        // Auto-refresh every 10 seconds
+        setInterval(updateDashboard, 10000);
+    </script>
+</body>
+</html>
+)rawliteral";
 }
