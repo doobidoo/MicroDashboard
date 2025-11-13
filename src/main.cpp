@@ -217,15 +217,33 @@ void setup() {
   }
 
   updateWeatherUrl();
+
+  Serial.println("Configuring time...");
   configTime(timezone, NTP_SERVER);
 
+  // Wait for time sync
+  Serial.println("Waiting for time synchronization...");
+  int timeAttempts = 0;
   struct tm timeinfo;
-  if (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time");
-  } else {
-    Serial.println("Time synchronized");
+  while (!getLocalTime(&timeinfo) && timeAttempts < 10) {
+    delay(500);
+    timeAttempts++;
   }
 
+  if (!getLocalTime(&timeinfo)) {
+    Serial.println("WARNING: Failed to obtain time");
+  } else {
+    Serial.printf("Time synchronized: %s %s\n", getDayOfWeek().c_str(), getFormattedTimeHHMM().c_str());
+  }
+
+  // Ensure WiFi is ready
+  Serial.printf("WiFi status: %d (3=connected)\n", WiFi.status());
+  Serial.printf("WiFi SSID: %s\n", WiFi.SSID().c_str());
+  Serial.printf("WiFi IP: %s\n", WiFi.localIP().toString().c_str());
+
+  delay(1000); // Give WiFi some time to stabilize
+
+  Serial.println("=== Fetching initial weather data ===");
   fetchWeatherData();
 
   setupWebServer();
@@ -946,8 +964,16 @@ void fetchWeatherData() {
   HTTPClient http;
   WiFiClientSecure client;
   client.setInsecure();
-  http.begin(client, weatherApiUrl);
+  client.setTimeout(15000); // 15 second timeout
 
+  if (!http.begin(client, weatherApiUrl)) {
+    Serial.println("ERROR: http.begin() failed!");
+    return;
+  }
+
+  http.setTimeout(15000);
+
+  Serial.println("Sending HTTP GET request...");
   int httpCode = http.GET();
   Serial.printf("HTTP Code: %d\n", httpCode);
 
