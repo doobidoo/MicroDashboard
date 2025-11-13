@@ -22,14 +22,14 @@ ESP8266-based OLED weather dashboard with multiple information views.
   </tr>
   <tr>
     <td><img src="media/IMG_6427.jpg" width="300"/><br/><b>Current Weather</b></td>
-    <td><img src="media/IMG_6428.jpg" width="300"/><br/><b>3-Day Forecast</b></td>
+    <td><img src="media/IMG_6428.jpg" width="300"/><br/><b>Quote View</b></td>
   </tr>
   <tr>
     <td><img src="media/IMG_6429.jpg" width="300"/><br/><b>Sun Times</b></td>
     <td><img src="media/IMG_6430.jpg" width="300"/><br/><b>Moon Phase</b></td>
   </tr>
   <tr>
-    <td><img src="media/IMG_6432.jpg" width="300"/><br/><b>Quote View</b></td>
+    <td><img src="media/IMG_6432.jpg" width="300"/><br/><b></b>3-Day Forecast</td>
     <td><img src="media/IMG_6433.jpg" width="300"/><br/><b>System Info</b></td>
   </tr>
 </table>
