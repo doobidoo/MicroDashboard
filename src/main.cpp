@@ -907,11 +907,10 @@ void fetchGeocodingData(String city) {
     return;
   }
 
-  String url = "https://geocoding-api.open-meteo.com/v1/search?name=" + city + "&count=1&language=en&format=json";
+  String url = "http://geocoding-api.open-meteo.com/v1/search?name=" + city + "&count=1&language=en&format=json";
 
   HTTPClient http;
-  WiFiClientSecure client;
-  client.setInsecure();
+  WiFiClient client;
   http.begin(client, url);
 
   int httpCode = http.GET();
@@ -951,7 +950,7 @@ void fetchWeatherData() {
     return;
   }
 
-  weatherApiUrl = "https://api.open-meteo.com/v1/forecast?";
+  weatherApiUrl = "http://api.open-meteo.com/v1/forecast?";
   weatherApiUrl += "latitude=" + String(latitude);
   weatherApiUrl += "&longitude=" + String(longitude);
   weatherApiUrl += "&current_weather=true";
@@ -962,16 +961,14 @@ void fetchWeatherData() {
   Serial.println("Fetching weather from: " + weatherApiUrl);
 
   HTTPClient http;
-  WiFiClientSecure client;
-  client.setInsecure();
-  client.setTimeout(15000); // 15 second timeout
+  WiFiClient client;
 
   if (!http.begin(client, weatherApiUrl)) {
     Serial.println("ERROR: http.begin() failed!");
     return;
   }
 
-  http.setTimeout(15000);
+  http.setTimeout(10000);
 
   Serial.println("Sending HTTP GET request...");
   int httpCode = http.GET();
