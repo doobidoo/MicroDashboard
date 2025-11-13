@@ -1096,10 +1096,10 @@ void handleAPI() {
   }
 
   // Weather
-  doc["temperature"] = weatherTemp;
+  doc["temperature"] = weatherTemp.toFloat();
   doc["weatherCode"] = weatherCode;
   doc["weatherDesc"] = getWeatherDescription(weatherCode);
-  doc["tempUnit"] = String(tempUnit);
+  doc["tempUnit"] = String(tempUnit[0]);
 
   // Sun & Moon
   doc["sunrise"] = sunriseTime;
