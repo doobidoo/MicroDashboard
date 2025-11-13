@@ -1,9 +1,10 @@
 # MicroDashboard
 
-ESP8266-based OLED weather dashboard with multiple information views.
+ESP8266-based OLED weather dashboard with multiple information views and a beautiful web interface.
 
 ## Features
 
+### OLED Display (8 Rotating Views)
 - **Clock View**: Large time display with location and seconds progress bar
 - **Date View**: Current date with calendar week
 - **Current Weather**: Live weather with icon and temperature
@@ -12,6 +13,16 @@ ESP8266-based OLED weather dashboard with multiple information views.
 - **Moon Phase**: Current moon phase with illumination percentage
 - **Quote View**: Rotating motivational quotes with WiFi SSID
 - **System Info**: WiFi signal, uptime, memory, and IP address
+
+### Web Dashboard 🌐
+- **Modern UI**: Beautiful gradient design with card-based layout
+- **Live Updates**: Auto-refresh every 10 seconds
+- **REST API**: JSON endpoint at `/api` for all sensor data
+- **Settings Page**: Configure location, temperature unit, and view duration
+- **Responsive**: Works on desktop, tablet, and mobile
+- **Weather Emojis**: Visual weather and moon phase indicators
+
+**Access the dashboard:** `http://<ESP_IP>/`
 
 ## Screenshots
 
@@ -49,11 +60,24 @@ ESP8266-based OLED weather dashboard with multiple information views.
 
 ## Configuration
 
+### Initial Setup
 On first boot, the device creates a WiFi access point "ESP-Config":
 - City/Location
 - Temperature unit (C/F/Both)
-- View duration
+- View duration (seconds)
 - Manual coordinates (optional)
+
+### Web Interface
+After connecting to WiFi, access the dashboard:
+1. Check the serial monitor for the IP address
+2. Open `http://<ESP_IP>/` in your browser
+3. Click "⚙️ Settings" to modify configuration
+4. Changes are saved to LittleFS and persist across reboots
+
+### API Endpoint
+Get JSON data: `http://<ESP_IP>/api`
+
+Returns all sensor data including temperature, weather, sun/moon info, and system stats.
 
 ## Dependencies
 
