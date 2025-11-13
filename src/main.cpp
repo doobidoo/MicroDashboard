@@ -941,16 +941,36 @@ void fetchWeatherData() {
   weatherApiUrl += "&forecast_days=3";
   weatherApiUrl += "&timezone=auto";
 
+  Serial.println("Fetching weather from: " + weatherApiUrl);
+
   HTTPClient http;
   WiFiClientSecure client;
   client.setInsecure();
   http.begin(client, weatherApiUrl);
 
   int httpCode = http.GET();
-  if (httpCode > 0) {
+  Serial.printf("HTTP Code: %d\n", httpCode);
+
+  if (httpCode == 200) {
     String payload = http.getString();
+    Serial.printf("Payload size: %d bytes\n", payload.length());
+
     DynamicJsonDocument doc(4096);
-    deserializeJson(doc, payload);
+    DeserializationError error = deserializeJson(doc, payload);
+
+    if (error) {
+      Serial.printf("JSON parsing failed: %s\n", error.c_str());
+      Serial.println("Payload: " + payload.substring(0, 200));
+      http.end();
+      return;
+    }
+
+    // Check if current_weather exists
+    if (!doc.containsKey("current_weather")) {
+      Serial.println("ERROR: No current_weather in response!");
+      http.end();
+      return;
+    }
 
     float currentTemp = doc["current_weather"]["temperature"];
     weatherTemp = String(currentTemp, 1);
@@ -960,16 +980,27 @@ void fetchWeatherData() {
       // Temperature trend tracking
     }
     previousTemp = currentTemp;
-    
+
     Serial.printf("Weather code: %d, Temp: %.1f\n", weatherCode, currentTemp);
+
+    // Check if daily data exists
+    if (!doc.containsKey("daily")) {
+      Serial.println("ERROR: No daily data in response!");
+      http.end();
+      return;
+    }
 
     const char* sunrise = doc["daily"]["sunrise"][0];
     const char* sunset = doc["daily"]["sunset"][0];
     if (sunrise != nullptr) {
       sunriseTime = String(sunrise).substring(11, 16);
+    } else {
+      Serial.println("WARNING: No sunrise data");
     }
     if (sunset != nullptr) {
       sunsetTime = String(sunset).substring(11, 16);
+    } else {
+      Serial.println("WARNING: No sunset data");
     }
 
     for (int i = 0; i < 3; i++) {
@@ -980,7 +1011,7 @@ void fetchWeatherData() {
       if (date != nullptr) {
         forecastDays[i] = String(date);
       }
-      Serial.printf("Forecast day %d: Code=%d, Max=%.1f, Min=%.1f\n", 
+      Serial.printf("Forecast day %d: Code=%d, Max=%.1f, Min=%.1f\n",
                     i, forecastCodes[i], forecastMaxTemps[i], forecastMinTemps[i]);
     }
 
@@ -990,7 +1021,7 @@ void fetchWeatherData() {
     Serial.printf("Weather updated: %s°C, Code: %d\n", weatherTemp.c_str(), weatherCode);
     Serial.printf("Sunrise: %s, Sunset: %s\n", sunriseTime.c_str(), sunsetTime.c_str());
   } else {
-    Serial.printf("Weather fetch failed: %s\n", http.errorToString(httpCode).c_str());
+    Serial.printf("Weather fetch failed: HTTP %d - %s\n", httpCode, http.errorToString(httpCode).c_str());
   }
   http.end();
 }
@@ -1014,7 +1045,10 @@ String getWeatherDescription(int weatherCode) {
 
 // --- CONFIGURATION MANAGEMENT ---
 void saveConfigCallback() { Serial.println("Should save config"); shouldSaveConfig = true; }
-void updateWeatherUrl() { weatherApiUrl = "http://api.open-meteo.com/v1/forecast?latitude=" + String(latitude) + "&longitude=" + String(longitude) + "&current_weather=true&daily=temperature_2m_max,temperature_2m_min"; Serial.println("Updated weather URL: " + weatherApiUrl); }
+void updateWeatherUrl() {
+  // This function is deprecated - fetchWeatherData() builds the URL itself
+  Serial.printf("Location set to: %.4f, %.4f\n", atof(latitude), atof(longitude));
+}
 void loadConfig() {
   if (LittleFS.exists("/config.json")) {
     File configFile = LittleFS.open("/config.json", "r");
