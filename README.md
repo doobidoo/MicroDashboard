@@ -13,6 +13,27 @@ ESP8266-based OLED weather dashboard with multiple information views.
 - **Quote View**: Rotating motivational quotes with WiFi SSID
 - **System Info**: WiFi signal, uptime, memory, and IP address
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="media/IMG_6425.jpg" width="300"/><br/><b>Clock View</b></td>
+    <td><img src="media/IMG_6426.jpg" width="300"/><br/><b>Date View</b></td>
+  </tr>
+  <tr>
+    <td><img src="media/IMG_6427.jpg" width="300"/><br/><b>Current Weather</b></td>
+    <td><img src="media/IMG_6428.jpg" width="300"/><br/><b>3-Day Forecast</b></td>
+  </tr>
+  <tr>
+    <td><img src="media/IMG_6429.jpg" width="300"/><br/><b>Sun Times</b></td>
+    <td><img src="media/IMG_6430.jpg" width="300"/><br/><b>Moon Phase</b></td>
+  </tr>
+  <tr>
+    <td><img src="media/IMG_6432.jpg" width="300"/><br/><b>Quote View</b></td>
+    <td><img src="media/IMG_6433.jpg" width="300"/><br/><b>System Info</b></td>
+  </tr>
+</table>
+
 ## Hardware
 
 - ESP8266 (ESP-12E/NodeMCU)
