@@ -190,9 +190,37 @@ void setup() {
   wifiManager.addParameter(&custom_lat);
   wifiManager.addParameter(&custom_lon);
 
+  // Show WiFi setup message on display
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("WiFi Setup Mode");
+  display.println("");
+  display.println("Connect to:");
+  display.setTextSize(2);
+  display.println("ESP-Config");
+  display.setTextSize(1);
+  display.println("");
+  display.println("Then open:");
+  display.println("192.168.4.1");
+  display.display();
+
   if (!wifiManager.autoConnect("ESP-Config")) {
     ESP.reset();
   }
+
+  // Show connected message
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("WiFi Connected!");
+  display.println("");
+  display.print("SSID: ");
+  display.println(WiFi.SSID());
+  display.print("IP: ");
+  display.println(WiFi.localIP());
+  display.display();
+  delay(2000);
 
   strcpy(cityName, custom_city.getValue());
   strcpy(displayName, custom_display.getValue());
