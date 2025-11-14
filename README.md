@@ -51,12 +51,23 @@ ESP8266-based OLED weather dashboard with multiple information views and a beaut
 
 <table>
   <tr>
-    <td><img src="media/IMG_6436.jpg" width="400"/><br/><b>Web Dashboard Overview</b></td>
-    <td><img src="media/IMG_6437.PNG" width="400"/><br/><b>Settings Page</b></td>
+    <td><img src="media/IMG_6435.PNG" width="400"/><br/><b>Web Dashboard Overview</b></td>
+    <td><img src="media/IMG_6437.PNG" width="400"/><br/><b>Configuration Portal</b></td>
   </tr>
   <tr>
-    <td><img src="media/IMG_6435.PNG" width="400"/><br/><b>Configuration Portal</b></td>
-    <td><img src="media/IMG_6438.PNG" width="400"/><br/><b>WiFi Setup Screen</b></td>
+    <td><img src="media/IMG_6438.PNG" width="400"/><br/><b>Settings Page</b></td>
+    <td><img src="media/IMG_6436.jpg" width="400"/><br/><b>WiFi Setup Screen</b></td>
+  </tr>
+</table>
+
+### Web GUI
+
+<table>
+  <tr>
+    <td><img src="media/Screenshot_20251113_204219.png" width="400"/><br/><b>Web Dashboard</b></td>
+  </tr>
+  <tr>
+    <td><img src="media/Screenshot_20251113_204339.png" width="400"/><br/><b>Settings Page</b></td>
   </tr>
 </table>
 
