@@ -26,6 +26,8 @@ ESP8266-based OLED weather dashboard with multiple information views and a beaut
 
 ## Screenshots
 
+### OLED Display Views
+
 <table>
   <tr>
     <td><img src="media/IMG_6425.jpg" width="300"/><br/><b>Clock View</b></td>
@@ -40,8 +42,21 @@ ESP8266-based OLED weather dashboard with multiple information views and a beaut
     <td><img src="media/IMG_6430.jpg" width="300"/><br/><b>Moon Phase</b></td>
   </tr>
   <tr>
-    <td><img src="media/IMG_6432.jpg" width="300"/><br/><b></b>3-Day Forecast</td>
+    <td><img src="media/IMG_6432.jpg" width="300"/><br/><b>3-Day Forecast</b></td>
     <td><img src="media/IMG_6433.jpg" width="300"/><br/><b>System Info</b></td>
+  </tr>
+</table>
+
+### Web Dashboard
+
+<table>
+  <tr>
+    <td><img src="media/IMG_6436.jpg" width="400"/><br/><b>Web Dashboard Overview</b></td>
+    <td><img src="media/IMG_6437.PNG" width="400"/><br/><b>Settings Page</b></td>
+  </tr>
+  <tr>
+    <td><img src="media/IMG_6435.PNG" width="400"/><br/><b>Configuration Portal</b></td>
+    <td><img src="media/IMG_6438.PNG" width="400"/><br/><b>WiFi Setup Screen</b></td>
   </tr>
 </table>
 
